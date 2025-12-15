@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 쿵쿵따 - 초등 끝말잇기</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts (Jua for kid-friendly look) -->
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+
+    <!-- Animate.css for fun effects -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+    <style>
+        body {
+            font-family: 'Jua', sans-serif;
+            background-color: #F0F9FF; /* Soft Cloud Blue */
+        }
+        .chat-bubble {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 20px;
+            margin-bottom: 10px;
+            position: relative;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .ai-bubble {
+            background-color: #ffffff;
+            color: #4B5563;
+            border-top-left-radius: 0;
+            margin-right: auto;
+            border: 2px solid #E5E7EB;
+        }
+        .user-bubble {
+            background-color: #FFDEE9;
+            background-image: linear-gradient(0deg, #FFDEE9 0%, #B5FFFC 100%);
+            color: #1F2937;
+            border-top-right-radius: 0;
+            margin-left: auto;
+            text-align: right;
+        }
+        .system-bubble {
+            background-color: #FEF3C7;
+            color: #D97706;
+            text-align: center;
+            font-size: 1rem;
+            margin: 0 auto 10px auto;
+            border-radius: 10px;
+            width: fit-content;
+        }
+        
+        /* Custom Scrollbar */
+        #chat-history::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-history::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+            border-radius: 4px;
+        }
+        #chat-history::-webkit-scrollbar-thumb {
+            background: #93C5FD; 
+            border-radius: 4px;
+        }
+        #chat-history::-webkit-scrollbar-thumb:hover {
+            background: #60A5FA; 
+        }
+
+        .timer-bar {
+            transition: width 1s linear;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- Game Container -->
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border-4 border-blue-200 flex flex-col h-[90vh]">
+        
+        <!-- Header -->
+        <div class="bg-blue-400 p-4 text-center relative">
+            <h1 class="text-3xl text-white drop-shadow-md">🎈 AI 쿵쿵따 🎈</h1>
+            <p class="text-blue-100 text-sm mt-1">두음법칙 적용 | 제한시간 30초</p>
+            <button onclick="resetGame()" class="absolute right-3 top-3 bg-white text-blue-500 rounded-full p-2 hover:bg-blue-50 transition shadow-md" title="다시 시작">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Timer Section -->
+        <div class="bg-gray-100 h-2 w-full">
+            <div id="timer-bar" class="h-full bg-green-400 w-full timer-bar"></div>
+        </div>
+        <div class="text-center py-1 bg-gray-50 text-gray-500 text-sm font-bold">
+            남은 시간: <span id="timer-text" class="text-blue-500 text-lg">30</span>초
+        </div>
+
+        <!-- Chat History (Game Board) -->
+        <div id="chat-history" class="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
+            <!-- Messages will be injected here -->
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 bg-blue-50 border-t border-blue-100">
+            <div class="flex gap-2">
+                <input type="text" id="user-input" 
+                    class="flex-1 border-2 border-blue-300 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg transition"
+                    placeholder="단어를 입력하세요!" autocomplete="off">
+                <button onclick="submitWord()" 
+                    class="bg-blue-500 hover:bg-blue-600 text-white rounded-xl px-6 font-bold shadow-lg transform active:scale-95 transition">
+                    입력
+                </button>
+            </div>
+            <div id="feedback-msg" class="text-center text-red-500 mt-2 h-5 text-sm font-bold"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Game Over -->
+    <div id="game-over-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate__animated animate__bounceIn">
+            <div class="text-6xl mb-4" id="modal-emoji">🏆</div>
+            <h2 class="text-3xl text-gray-800 mb-2" id="modal-title">게임 종료!</h2>
+            <p class="text-gray-600 mb-6 text-lg" id="modal-message">결과 메시지가 여기에 뜹니다.</p>
+            <button onclick="resetGame()" class="w-full bg-blue-500 text-white py-3 rounded-xl text-xl hover:bg-blue-600 shadow-lg transition">
+                다시 하기
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Data: 500+ Elementary Level Nouns ---
+        // 압축을 위해 일부만 나열하지만, 실제로는 더 방대하게 구성 가능합니다.
+        const wordDB = [
+            "가게", "가격", "가구", "가수", "가슴", "가위", "가을", "가족", "가지", "간식",
+            "갈비", "감기", "감동", "감자", "강아지", "강자", "개구리", "개미", "거미", "거울",
+            "거짓말", "건강", "건물", "걸음", "검정", "게임", "겨울", "결과", "결혼", "경찰",
+            "경치", "경험", "계단", "계란", "계산", "계절", "계획", "고기", "고모", "고양이",
+            "고추", "고향", "골목", "곰", "공", "공부", "공원", "공장", "공책", "공항",
+            "과자", "과학", "관심", "광고", "광장", "교실", "교육", "교통", "구름", "구멍",
+            "구두", "국기", "국물", "국수", "국어", "국제", "군인", "굴", "귀", "규칙",
+            "귤", "그네", "그림", "그림자", "극장", "글자", "금", "기간", "기분", "기차",
+            "기타", "기회", "길", "김", "김치", "깃발", "까치", "꽃", "꽃병", "꽃집",
+            "꿈", "나라", "나무", "나비", "나이", "낚시", "날씨", "날짜", "남동생", "남자",
+            "남쪽", "내용", "냉장고", "너구리", "넥타이", "노래", "노인", "녹색", "놀이", "농구",
+            "농부", "눈", "눈물", "뉴스", "느낌", "늑대", "능력", "다람쥐", "다리", "다음",
+            "단어", "단추", "달", "달걀", "달력", "달리기", "닭", "담배", "답", "당근",
+            "대문", "대장", "대화", "대회", "도구", "도둑", "도서관", "도시", "도움", "도착",
+            "독서", "돈", "돌", "동그라미", "동네", "동물", "동물원", "동생", "동전", "동화",
+            "두부", "뒤", "드라마", "등", "등산", "딸", "딸기", "땅", "떡", "떡볶이",
+            "라디오", "라면", "라이터", "라일락", "로봇", "로켓", "리본", "리듬", 
+            "마을", "마음", "마지막", "마트", "만두", "말", "맛", "망원경", "매미", "머리",
+            "먹이", "먼지", "메모", "메아리", "며느리", "명절", "모기", "모래", "모습", "모양",
+            "모자", "목", "목걸이", "목소리", "목요일", "목욕", "목표", "몸", "못", "무",
+            "무궁화", "무늬", "무릎", "무지개", "문", "문화", "물", "물건", "물고기", "물음표",
+            "미국", "미래", "미소", "미술", "미역", "믿음", "바나나", "바다", "바닥", "바람",
+            "바보", "바지", "박수", "밖", "반", "반지", "반찬", "발", "발가락", "발표",
+            "밤", "밥", "방", "방송", "방학", "배", "배구", "배추", "백화점", "뱀",
+            "버섯", "버스", "번호", "벌", "벌레", "범인", "법", "벚꽃", "베개", "벽",
+            "변호사", "별", "병", "병원", "보석", "보물", "복숭아", "볶음밥", "볼펜", "봄",
+            "봉투", "부모", "부엌", "부채", "북", "북쪽", "분필", "불", "불고기", "붕어빵",
+            "비", "비누", "비디오", "비밀", "비행기", "빗", "빵", "사과", "사람", "사랑",
+            "사무실", "사슴", "사실", "사업", "사용", "사장", "사전", "사진", "사탕", "사회",
+            "산", "산책", "살", "삼촌", "상", "상자", "상처", "상품", "새", "새우",
+            "색", "색연필", "생각", "생선", "생일", "생활", "샤워", "서점", "선물", "선생님",
+            "선수", "선풍기", "설날", "설탕", "섬", "성격", "성공", "성적", "세계", "세수",
+            "세상", "센터", "소", "소금", "소나기", "소녀", "소년", "소리", "소방관", "소설",
+            "소식", "소풍", "손", "손가락", "손수건", "솜", "송편", "수건", "수박", "수술",
+            "수업", "수영", "수요일", "수첩", "수학", "숙제", "순서", "숟가락", "술", "숲",
+            "슈퍼마켓", "스웨터", "스케이트", "스키", "스타", "스트레스", "슬픔", "습관", "승리", "시",
+            "시간", "시계", "시골", "시장", "시작", "시험", "식구", "식당", "식물", "식사",
+            "식탁", "신", "신문", "신발", "신호등", "실", "실내", "실수", "실패", "심장",
+            "십일월", "쓰레기", "씨", "씨앗", "아기", "아내", "아들", "아이스크림", "아침", "아파트",
+            "아픔", "악기", "악어", "안", "안경", "안개", "안녕", "안전", "앞", "약",
+            "약국", "약속", "양", "양말", "양복", "양치", "어깨", "어머니", "어른", "어린이",
+            "어항", "얼굴", "얼음", "엄마", "엉덩이", "에어컨", "엘리베이터", "여권", "여기", "여동생",
+            "여름", "여우", "여자", "여행", "역", "역사", "연결", "연기", "연두색", "연락",
+            "연말", "연습", "연예인", "연필", "연휴", "열", "열매", "열쇠", "엽서", "영국",
+            "영상", "영어", "영화", "옆", "예습", "예술", "예절", "옛날", "오늘", "오빠",
+            "오이", "오전", "오징어", "오후", "온도", "올해", "옷", "옷장", "왕", "왕자",
+            "외국", "외국인", "왼쪽", "요리", "요리사", "요일", "요즘", "욕실", "용돈", "용기",
+            "우산", "우유", "우정", "우표", "운동", "운동장", "운동화", "울음", "음료수", "음식",
+            "음악", "의미", "의사", "의자", "이", "이름", "이모", "이불", "이사", "이야기",
+            "이유", "이웃", "인기", "인사", "인생", "인형", "일", "일기", "일본", "일요일",
+            "일주일", "입", "입구", "입술", "자", "자동차", "자리", "자전거", "자주색", "자유",
+            "작년", "작은아버지", "잔", "잔디", "잠", "잠자리", "장갑", "장난감", "장미", "장소",
+            "저녁", "저금통", "저분", "전", "전공", "전기", "전자", "전통", "전화", "점심",
+            "점수", "접시", "젓가락", "정리", "정말", "정문", "정보", "정원", "정치", "제목",
+            "제주도", "졸업", "좀", "종", "종류", "종이", "주", "주말", "주머니", "주민",
+            "주사", "주소", "주스", "주인", "주차장", "주황색", "준비", "줄", "중국", "중심",
+            "중앙", "중학교", "쥐", "지갑", "지금", "지난달", "지우개", "지하", "지하철", "직업",
+            "직장", "질문", "집", "짜장면", "쪽", "차", "창문", "채소", "책", "책상",
+            "책장", "처음", "천", "천장", "철", "첫째", "청소", "체육", "초", "초대",
+            "초록색", "초등학교", "초콜릿", "최고", "추석", "추억", "축구", "축제", "출구", "출발",
+            "춤", "취미", "층", "치과", "치마", "친구", "침대", "칫솔", "카메라", "카페",
+            "칼", "커피", "컴퓨터", "컵", "케이크", "코", "코끼리", "코트", "콜라", "콩",
+            "크기", "크리스마스", "키", "택시", "턱", "털", "테니스", "테이블", "텔레비전", "토끼",
+            "토마토", "토요일", "통장", "트럭", "특기", "티셔츠", "팀", "파", "파란색", "파티",
+            "팔", "편지", "포도", "포크", "표", "표정", "풀", "풍선", "피", "피구",
+            "피노키오", "피망", "피부", "피아노", "피자", "필통", "하나님", "하늘", "하루", "하마",
+            "학교", "학년", "학생", "학원", "한", "한국", "한글", "한복", "할머니", "할아버지",
+            "함", "합격", "해", "해물", "핸드폰", "햄버거", "행동", "행복", "행사", "허리",
+            "현금", "형", "형제", "호랑이", "호수", "호주머니", "호텔", "혼자", "홍시", "화",
+            "화가", "화장실", "화요일", "확인", "환경", "환자", "회사", "회의", "횡단보도", "효도",
+            "후", "후배", "휴가", "휴대전화", "휴지", "휴일", "흉내", "흐름", "흔적", "희망",
+            "흰색", "힘"
+        ];
+        
+        // Dueum Beopchik Map (두음법칙 변환 테이블)
+        const dueumMap = {
+            '라': '나', '락': '낙', '란': '난', '랄': '날', '람': '남', '랍': '납', '랑': '낭',
+            '래': '내', '랭': '냉', '냑': '약', '략': '약', '냥': '양', '량': '양', '녀': '여',
+            '려': '여', '녁': '역', '력': '역', '년': '연', '련': '연', '녈': '열', '렬': '열',
+            '념': '염', '렴': '염', '렵': '엽', '녕': '영', '령': '영', '녜': '예', '례': '예',
+            '로': '노', '록': '녹', '론': '논', '롱': '농', '뢰': '뇌', '뇨': '요', '료': '요',
+            '룡': '용', '루': '누', '뉴': '유', '류': '유', '뉵': '육', '륙': '육', '륜': '윤',
+            '률': '율', '륭': '융', '르': '느', '륵': '늑', '름': '늠', '릉': '능', '니': '이',
+            '리': '이', '린': '인', '림': '임', '립': '입'
+        };
+
+        // Game State
+        let usedWords = new Set();
+        let currentWord = "";
+        let timeLeft = 30;
+        let timerInterval;
+        let isGameRunning = false;
+        let aiWords = [...wordDB]; // Copy for AI usage
+
+        // DOM Elements
+        const chatHistory = document.getElementById('chat-history');
+        const userInput = document.getElementById('user-input');
+        const timerText = document.getElementById('timer-text');
+        const timerBar = document.getElementById('timer-bar');
+        const feedbackMsg = document.getElementById('feedback-msg');
+
+        // Modal Elements
+        const modal = document.getElementById('game-over-modal');
+        const modalEmoji = document.getElementById('modal-emoji');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+
+        // Sounds (Using browser synthesis for simplicity)
+        const speak = (text) => {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ko-KR';
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+        };
+
+        // --- Functions ---
+
+        function initGame() {
+            // Reset State
+            usedWords.clear();
+            aiWords = [...wordDB];
+            chatHistory.innerHTML = '';
+            userInput.value = '';
+            feedbackMsg.innerText = '';
+            timeLeft = 30;
+            isGameRunning = true;
+            
+            // UI Reset
+            modal.classList.add('hidden');
+            timerText.innerText = "30";
+            timerBar.style.width = "100%";
+            timerBar.classList.remove('bg-red-500');
+            timerBar.classList.add('bg-green-400');
+            
+            // Start Message
+            addMessage("system", "게임을 시작합니다! 첫 단어는 '사과' 입니다.");
+            currentWord = "사과";
+            usedWords.add("사과");
+            addMessage("ai", "사과");
+            
+            startTimer();
+            userInput.focus();
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timeLeft = 30;
+            updateTimerUI();
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerUI();
+                
+                if (timeLeft <= 0) {
+                    gameOver(false, "시간 초과! 생각할 시간이 너무 오래 걸렸어요 😢");
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            timerText.innerText = timeLeft;
+            const percentage = (timeLeft / 30) * 100;
+            timerBar.style.width = `${percentage}%`;
+            
+            if (timeLeft <= 10) {
+                timerBar.classList.remove('bg-green-400');
+                timerBar.classList.add('bg-red-500');
+            } else {
+                timerBar.classList.add('bg-green-400');
+                timerBar.classList.remove('bg-red-500');
+            }
+        }
+
+        function addMessage(type, text) {
+            const div = document.createElement('div');
+            
+            if (type === 'system') {
+                div.className = 'system-bubble';
+            } else if (type === 'ai') {
+                div.className = 'chat-bubble ai-bubble animate__animated animate__fadeInLeft';
+                div.innerHTML = `🤖 <b>AI:</b> ${text}`;
+            } else {
+                div.className = 'chat-bubble user-bubble animate__animated animate__fadeInRight';
+                div.innerHTML = `<b>나:</b> ${text}`;
+            }
+            
+            if (type === 'system') div.innerText = text;
+            
+            chatHistory.appendChild(div);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function checkInput() {
+            feedbackMsg.innerText = "";
+            const inputWord = userInput.value.trim();
+            
+            // 1. Validation: Length
+            if (inputWord.length < 2) {
+                showError("두 글자 이상의 단어를 입력해주세요!");
+                return false;
+            }
+
+            // 2. Validation: Duplication
+            if (usedWords.has(inputWord)) {
+                showError("이미 나온 단어예요!");
+                return false;
+            }
+
+            // 3. Validation: Connection & Dueum Beopchik
+            const lastChar = currentWord[currentWord.length - 1];
+            const firstChar = inputWord[0];
+            
+            let isValidConnection = false;
+            
+            // Direct match
+            if (lastChar === firstChar) {
+                isValidConnection = true;
+            } 
+            // Dueum Beopchik match
+            else if (dueumMap[lastChar] && dueumMap[lastChar] === firstChar) {
+                isValidConnection = true;
+            }
+
+            if (!isValidConnection) {
+                let hint = dueumMap[lastChar] ? `'${lastChar}' 또는 '${dueumMap[lastChar]}'` : `'${lastChar}'`;
+                showError(`'${hint}'(으)로 시작하는 단어야 해요!`);
+                return false;
+            }
+
+            return true;
+        }
+
+        function showError(msg) {
+            feedbackMsg.innerText = msg;
+            userInput.classList.add('animate__animated', 'animate__shakeX', 'border-red-500');
+            setTimeout(() => {
+                userInput.classList.remove('animate__animated', 'animate__shakeX', 'border-red-500');
+            }, 1000);
+        }
+
+        function submitWord() {
+            if (!isGameRunning) return;
+
+            const inputWord = userInput.value.trim();
+            if (checkInput()) {
+                // Success
+                clearInterval(timerInterval); // Stop timer while processing
+                usedWords.add(inputWord);
+                currentWord = inputWord;
+                addMessage("user", inputWord);
+                userInput.value = '';
+                
+                // AI Turn
+                setTimeout(aiTurn, 800);
+            }
+        }
+
+        function aiTurn() {
+            const lastChar = currentWord[currentWord.length - 1];
+            
+            // Filter candidates
+            const candidates = aiWords.filter(word => {
+                if (usedWords.has(word)) return false;
+                
+                const firstChar = word[0];
+                // Check direct match OR dueum beopchik match
+                if (firstChar === lastChar) return true;
+                if (dueumMap[lastChar] && firstChar === dueumMap[lastChar]) return true;
+                
+                return false;
+            });
+
+            if (candidates.length > 0) {
+                // AI picks a random word
+                const choice = candidates[Math.floor(Math.random() * candidates.length)];
+                currentWord = choice;
+                usedWords.add(choice);
+                addMessage("ai", choice);
+                speak(choice); // AI reads the word
+                startTimer(); // Restart timer for player
+            } else {
+                // AI cannot reply
+                gameOver(true, `AI가 '${lastChar}'(으)로 시작하는 단어를 못 찾았어요!`);
+            }
+        }
+
+        function gameOver(isWin, message) {
+            isGameRunning = false;
+            clearInterval(timerInterval);
+            
+            modal.classList.remove('hidden');
+            if (isWin) {
+                modalEmoji.innerText = "🏆";
+                modalTitle.innerText = "승리!";
+                modalTitle.className = "text-3xl text-blue-600 mb-2 font-bold";
+                // confetti effect could go here
+            } else {
+                modalEmoji.innerText = "😢";
+                modalTitle.innerText = "패배...";
+                modalTitle.className = "text-3xl text-gray-800 mb-2 font-bold";
+            }
+            modalMessage.innerText = message;
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        // Event Listeners
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.isComposing) {
+                submitWord();
+            }
+        });
+
+        // Initialize on load
+        window.onload = initGame;
+
+    </script>
+</body>
+</html>
